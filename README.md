@@ -42,7 +42,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 - [x] Etapa 02: arquitetura e banco (schema PostgreSQL/Drizzle, 11 tabelas, índices, FKs, seeders com dados de demonstração)
 - [x] Etapa 03: autenticação (login, logout, perfil, permissões por role ADMIN/MANAGER/OPERATOR, middleware de proteção e tela de login com atalhos de demonstração)
 - [x] Etapa 04: categorias (CRUD completo, contagem de produtos vinculados, busca em tempo real, proteção estrita contra exclusão indevida)
-- [ ] Etapa 05: fornecedores
+- [x] Etapa 05: fornecedores (CRUD completo, busca por razão social/CNPJ/e-mail, contatos, preservação de integridade relacional com soft-deactivate)
 - [ ] Etapa 06: produtos
 - [ ] Etapa 07: estoque
 - [ ] Etapa 08: lotes e validade
