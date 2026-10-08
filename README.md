@@ -50,7 +50,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 - [x] Etapa 10: dashboard (painel gerencial em tempo real com KPIs de faturamento diário/mensal, lucro estimado, valorização de estoque a custo/venda, gráficos de 7 dias, participação por método de pagamento, top produtos mais vendidos e alertas de reposição urgente)
 - [x] Etapa 11: relatórios (emissão e exportação em CSV/impressão para Vendas com margem de lucro, Posição de Estoque com sugestão de compra, Auditoria de Movimentações e Lotes/Validade, além de gestão completa de Clientes)
 - [x] Etapa 12: testes (suíte automatizada de testes cobrindo validações de produtos, cálculo de margem, bloqueio de estoque negativo, categorização de validades, fechamento de caixa atômico e estornos)
-- [ ] Etapa 13: refinamento (inclui configuração do deploy no Vercel)
+- [x] Etapa 13: refinamento (configuração de deploy no Vercel via vercel.json e nitro preset, tratamento de erros, responsividade total, atalhos de teclado F2/F4/F9 no PDV e UX aprimorada)
 - [ ] Etapa 14: documentação final
 
 ## Usuários de Demonstração (Seed)
