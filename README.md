@@ -48,7 +48,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 - [x] Etapa 08: lotes e validade (controle por lote, categorização automática vencido/7 dias/30 dias/regular, descarte sanitário de lote com baixa em estoque e auditoria)
 - [x] Etapa 09: PDV / vendas (frente de caixa rápida, suporte a leitor de código de barras USB com feedback sonoro, carrinho reativo, cálculo de troco, descontos, transações atômicas com baixa em estoque e estorno de cancelamento)
 - [x] Etapa 10: dashboard (painel gerencial em tempo real com KPIs de faturamento diário/mensal, lucro estimado, valorização de estoque a custo/venda, gráficos de 7 dias, participação por método de pagamento, top produtos mais vendidos e alertas de reposição urgente)
-- [ ] Etapa 11: relatórios
+- [x] Etapa 11: relatórios (emissão e exportação em CSV/impressão para Vendas com margem de lucro, Posição de Estoque com sugestão de compra, Auditoria de Movimentações e Lotes/Validade, além de gestão completa de Clientes)
 - [ ] Etapa 12: testes
 - [ ] Etapa 13: refinamento (inclui configuração do deploy no Vercel)
 - [ ] Etapa 14: documentação final
