@@ -40,7 +40,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 
 - [x] Etapa 01: inicialização (Nuxt, Tailwind, Drizzle, banco, ambiente)
 - [x] Etapa 02: arquitetura e banco (schema PostgreSQL/Drizzle, 11 tabelas, índices, FKs, seeders com dados de demonstração)
-- [ ] Etapa 03: autenticação
+- [x] Etapa 03: autenticação (login, logout, perfil, permissões por role ADMIN/MANAGER/OPERATOR, middleware de proteção e tela de login com atalhos de demonstração)
 - [ ] Etapa 04: categorias
 - [ ] Etapa 05: fornecedores
 - [ ] Etapa 06: produtos
