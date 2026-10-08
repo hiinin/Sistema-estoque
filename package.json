@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx server/database/seed.ts"
+    "db:seed": "tsx server/database/seed.ts",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
