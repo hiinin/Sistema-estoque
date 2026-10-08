@@ -43,7 +43,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 - [x] Etapa 03: autenticação (login, logout, perfil, permissões por role ADMIN/MANAGER/OPERATOR, middleware de proteção e tela de login com atalhos de demonstração)
 - [x] Etapa 04: categorias (CRUD completo, contagem de produtos vinculados, busca em tempo real, proteção estrita contra exclusão indevida)
 - [x] Etapa 05: fornecedores (CRUD completo, busca por razão social/CNPJ/e-mail, contatos, preservação de integridade relacional com soft-deactivate)
-- [ ] Etapa 06: produtos
+- [x] Etapa 06: produtos (CRUD completo, validação de EAN/barcode e SKU únicos, cálculo de margem, estoque mínimo, gerador de código de barras, filtros inteligentes)
 - [ ] Etapa 07: estoque
 - [ ] Etapa 08: lotes e validade
 - [ ] Etapa 09: PDV / vendas
