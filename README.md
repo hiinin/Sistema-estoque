@@ -45,7 +45,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 - [x] Etapa 05: fornecedores (CRUD completo, busca por razão social/CNPJ/e-mail, contatos, preservação de integridade relacional com soft-deactivate)
 - [x] Etapa 06: produtos (CRUD completo, validação de EAN/barcode e SKU únicos, cálculo de margem, estoque mínimo, gerador de código de barras, filtros inteligentes)
 - [x] Etapa 07: estoque (entradas avulsas, compras/NF com múltiplos itens, perdas/avarias, ajustes de inventário, bloqueio estrito de estoque negativo e auditoria de movimentações com transações atômicas)
-- [ ] Etapa 08: lotes e validade
+- [x] Etapa 08: lotes e validade (controle por lote, categorização automática vencido/7 dias/30 dias/regular, descarte sanitário de lote com baixa em estoque e auditoria)
 - [ ] Etapa 09: PDV / vendas
 - [ ] Etapa 10: dashboard
 - [ ] Etapa 11: relatórios
