@@ -1,67 +1,200 @@
-# Sistema de Estoque
+# 📦 Sistema de Gestão de Estoque & Frente de Caixa (PDV)
 
-Sistema de **gestão de estoque, vendas (PDV com leitor de código de barras), controle de validade e dashboard** para mercados e pequenos comércios.
+Sistema web completo, profissional e funcional de **gestão de estoque, controle de vendas (PDV com suporte a leitor de código de barras USB), monitoramento de validade/lotes e relatórios gerenciais**, desenvolvido para supermercados, mercearias, lojas e comércios em geral.
 
-## Stack
+---
 
-| Camada | Tecnologia |
-| --- | --- |
-| Frontend | Vue 3 (Nuxt 4) + Tailwind CSS 4 |
-| API | Nitro (rotas em `server/api`), com validação via Zod |
-| Banco | PostgreSQL (Supabase em produção, PGlite embutido em desenvolvimento) |
-| ORM | Drizzle ORM |
-| Deploy | Vercel |
+## 🚀 Tecnologias & Arquitetura
 
-> **Decisão de arquitetura:** o escopo original previa Laravel + MySQL. O projeto foi migrado para Nuxt + PostgreSQL porque o banco é o Supabase (PostgreSQL) e a hospedagem é o Vercel, que não executa PHP nativamente.
+| Camada | Tecnologia | Detalhes |
+| :--- | :--- | :--- |
+| **Frontend** | Vue 3 · Nuxt 4 · Tailwind CSS 4 | Interface reativa, moderna, desktop-first para PDV e responsiva para tablets e smartphones |
+| **Ícones & UI** | Lucide Icons · Web Audio API | Ícones contextuais e feedback sonoro realista de bip para leitura de código de barras |
+| **Backend & API** | Nitro Engine (Nuxt Server Routes) | Endpoints tipados com validação estrita via **Zod** |
+| **Banco de Dados** | PostgreSQL (Supabase / PGlite) | Conexão de produção no Supabase via Transaction/Session Pooler e PGlite embutido para desenvolvimento local |
+| **ORM & Migrações**| Drizzle ORM | Consultas tipadas, relacionamentos declarativos e transações atômicas com `db.transaction()` |
+| **Autenticação** | Jose (JWT em Cookie HttpOnly Seguro) | Sessões criptografadas com controle de permissões por nível (`ADMIN`, `MANAGER`, `OPERATOR`) |
+| **Testes** | Node.js Test Runner + TSX | Suíte automatizada cobrindo todas as regras de negócio críticas |
+| **Hospedagem** | Vercel Serverless Functions | Configurado com preset Vercel via `vercel.json` |
 
-## Requisitos
+> 💡 **Nota de Decisão Arquitetural:** O projeto utiliza Nuxt 4 com PostgreSQL (Supabase) e deploy no Vercel, garantindo compatibilidade nativa com nuvem serverless e máxima velocidade de resposta.
 
-- Node.js 20 ou superior
-- Git
+---
 
-## Instalação
+## ✨ Principais Funcionalidades
 
-```bash
-npm install
-cp .env.example .env
-npm run dev
+### 🛒 1. Frente de Caixa / PDV (Ponto de Venda)
+* **Leitura de Código de Barras USB:** Suporta leitores ópticos/laser emuladores de teclado USB. Ao ler o código de barras (EAN-13), o produto é adicionado imediatamente com toque sonoro de bip.
+* **Busca Híbrida:** Pesquisa instantânea por nome do produto, SKU ou código de barras com seleção por clique ou teclado.
+* **Atalhos de Teclado Rápidos:**
+  * `F2`: Focar imediatamente no campo de busca/código de barras.
+  * `F4`: Abrir tela de finalização de pagamento.
+  * `F9`: Cancelar carrinho e reiniciar venda.
+* **Cálculo Automático de Troco:** Cálculo dinâmico para pagamentos em dinheiro com validação de valor recebido.
+* **Múltiplas Formas de Pagamento:** Dinheiro, PIX, Cartão de Crédito e Cartão de Débito.
+* **Transações Atômicas:** Baixa de estoque simultânea e geração de auditoria com garantia de consistência (rollback automático em caso de falha).
+* **Cancelamento e Estorno de Vendas:** Cancelamento de vendas concluídas com devolução automática dos itens ao estoque e registro de estorno (`RETURN`).
+* **Emissão de Cupom Não Fiscal:** Modal de comprovante com opção de impressão direta.
+
+### 📦 2. Gestão de Produtos & Catálogo
+* Cadastro completo com **SKU único**, **Código de Barras (EAN-13)**, preço de custo, preço de venda e unidade de medida.
+* Cálculo automático de **Margem de Lucro (%)** e **Lucro Bruto (R$)** em tempo real.
+* Configuração de **Estoque Mínimo** e **Estoque Máximo** com alertas visuais.
+* Gerador automático de código de barras EAN aleatório para produtos que não possuem código de fábrica.
+
+### 🏷️ 3. Controle de Lotes & Validade
+* Controle detalhado por número de lote, data de fabricação e data de expiração.
+* **Categorização visual inteligente de vencimento:**
+  * 🔴 **Vencido:** Validade expirada.
+  * 🟠 **Urgente:** Vence em até 7 dias (ação de queima/promoção).
+  * 🟡 **Atenção:** Vence em até 30 dias.
+  * 🟢 **Regular:** Validade segura superior a 30 dias.
+* Ação de **Descarte Sanitário:** Baixa do lote com dedução do estoque do produto e auditoria de perda (`LOSS`).
+
+### 🔄 4. Movimentações de Estoque & Auditoria Total
+* **Entrada Avulsa (`ENTRY`):** Inclusão manual de itens.
+* **Compras de Fornecedor / NF (`PURCHASE`):** Entrada de múltiplos itens com vínculo a fornecedor e número de nota fiscal.
+* **Perdas e Avarias (`LOSS`):** Baixa justificada por quebra, dano ou validade.
+* **Ajustes de Inventário (`ADJUSTMENT`):** Correções após contagem física.
+* **Vendas no PDV (`SALE`):** Baixa automática no ato da compra.
+* **Estorno de Cancelamento (`RETURN`):** Devolução ao estoque após cancelamento de cupom.
+* **Bloqueio Rigoroso de Estoque Negativo:** O sistema impede qualquer saída superior ao saldo existente no banco de dados.
+
+### 📊 5. Dashboard Gerencial em Tempo Real
+* Indicadores diários (Faturamento hoje, total de cupons, ticket médio e unidades vendidas).
+* Indicadores mensais acumulados e lucro bruto estimado.
+* Valorização total do estoque a preço de custo e preço de venda projetado.
+* Gráfico de vendas dos últimos 7 dias.
+* Distribuição percentual por método de pagamento.
+* Ranking dos 5 produtos mais vendidos.
+* Painel de reposição urgente com itens abaixo do estoque mínimo.
+
+### 📑 6. Relatórios & Inteligência de Negócio
+* Relatórios completos com filtros por período, categoria, fornecedor e forma de pagamento:
+  * **Relatório de Vendas & Faturamento**
+  * **Relatório de Posição de Estoque & Sugestão de Compra**
+  * **Relatório de Auditoria de Movimentações**
+  * **Relatório de Lotes e Controle de Validade**
+* **Exportação para CSV:** Arquivo formatado com separador padrão `;` e codificação UTF-8 com BOM (compatibilidade nativa com Microsoft Excel).
+* **Impressão / PDF:** Layout limpo e otimizado via CSS Print (`@media print`).
+
+### 👥 7. Gestão de Clientes e Fornecedores
+* Cadastro de Clientes (CPF, WhatsApp, e-mail) para vínculo no PDV.
+* Cadastro de Fornecedores com CNPJ, contatos e endereço.
+* Proteção contra exclusão indevida (soft-deactivate e restrição de integridade referencial).
+
+---
+
+## 🗄️ Estrutura do Banco de Dados (11 Tabelas)
+
+```
+users (id, name, email, password, role, active, created_at, updated_at)
+categories (id, name, description, active, created_at, updated_at)
+suppliers (id, name, cnpj, phone, email, address, active, created_at, updated_at)
+customers (id, name, cpf, phone, email, created_at, updated_at)
+products (id, sku, barcode, name, description, category_id, supplier_id, cost_price, sale_price, current_stock, minimum_stock, maximum_stock, unit, active, created_at, updated_at)
+product_batches (id, product_id, batch_number, initial_quantity, current_quantity, cost_price, manufacturing_date, expiration_date, active, created_at, updated_at)
+purchases (id, code, supplier_id, user_id, total, invoice_number, notes, created_at, updated_at)
+purchase_items (id, purchase_id, product_id, quantity, cost_price, subtotal, batch_number, manufacturing_date, expiration_date, created_at)
+sales (id, code, user_id, customer_id, subtotal, discount, total, payment_method, status, notes, created_at, updated_at)
+sale_items (id, sale_id, product_id, batch_id, quantity, unit_price, cost_price, subtotal, created_at)
+stock_movements (id, product_id, batch_id, user_id, type, quantity, previous_stock, new_stock, unit_cost, reference_id, reason, created_at)
 ```
 
-Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o banco.
+---
 
-## Banco de dados
+## 🔐 Usuários de Demonstração (Seed)
 
-- **Desenvolvimento:** com `DATABASE_URL` vazio, o projeto usa PGlite (PostgreSQL embutido), gravado em `.data/pglite`. Não é preciso instalar nada.
-- **Produção/Supabase:** preencha `DATABASE_URL` com a connection string do **Session pooler** (Connect > Session pooler). A conexão direta do Supabase usa apenas IPv6 e pode falhar no Windows e no Vercel.
+O banco já vem previamente abastecido com dados de teste e usuários para os 3 níveis de acesso:
 
-> **Nota (Windows):** o `nitro.noExternals` em `nuxt.config.ts` contorna um bug do Nitro com caminhos no Windows (erro "Either manifest or precomputed data must be provided"). O PGlite é carregado por import dinâmico em `server/utils/db.ts` por esse motivo.
+| Perfil | E-mail | Senha | Nível de Acesso |
+| :--- | :--- | :--- | :--- |
+| **Administrador** | `admin@estoque.com` | `admin123` | Acesso total a todos os módulos, configurações e usuários |
+| **Gerente** | `gerente@estoque.com` | `gerente123` | Acesso a estoque, lotes, produtos, relatórios e PDV |
+| **Operador de Caixa** | `operador@estoque.com` | `operador123` | Acesso à frente de caixa (PDV) e consulta de catálogo/clientes |
 
-## Progresso
+> *A tela de login conta com botões de 1 clique para preenchimento rápido de cada perfil.*
 
-- [x] Etapa 01: inicialização (Nuxt, Tailwind, Drizzle, banco, ambiente)
-- [x] Etapa 02: arquitetura e banco (schema PostgreSQL/Drizzle, 11 tabelas, índices, FKs, seeders com dados de demonstração)
-- [x] Etapa 03: autenticação (login, logout, perfil, permissões por role ADMIN/MANAGER/OPERATOR, middleware de proteção e tela de login com atalhos de demonstração)
-- [x] Etapa 04: categorias (CRUD completo, contagem de produtos vinculados, busca em tempo real, proteção estrita contra exclusão indevida)
-- [x] Etapa 05: fornecedores (CRUD completo, busca por razão social/CNPJ/e-mail, contatos, preservação de integridade relacional com soft-deactivate)
-- [x] Etapa 06: produtos (CRUD completo, validação de EAN/barcode e SKU únicos, cálculo de margem, estoque mínimo, gerador de código de barras, filtros inteligentes)
-- [x] Etapa 07: estoque (entradas avulsas, compras/NF com múltiplos itens, perdas/avarias, ajustes de inventário, bloqueio estrito de estoque negativo e auditoria de movimentações com transações atômicas)
-- [x] Etapa 08: lotes e validade (controle por lote, categorização automática vencido/7 dias/30 dias/regular, descarte sanitário de lote com baixa em estoque e auditoria)
-- [x] Etapa 09: PDV / vendas (frente de caixa rápida, suporte a leitor de código de barras USB com feedback sonoro, carrinho reativo, cálculo de troco, descontos, transações atômicas com baixa em estoque e estorno de cancelamento)
-- [x] Etapa 10: dashboard (painel gerencial em tempo real com KPIs de faturamento diário/mensal, lucro estimado, valorização de estoque a custo/venda, gráficos de 7 dias, participação por método de pagamento, top produtos mais vendidos e alertas de reposição urgente)
-- [x] Etapa 11: relatórios (emissão e exportação em CSV/impressão para Vendas com margem de lucro, Posição de Estoque com sugestão de compra, Auditoria de Movimentações e Lotes/Validade, além de gestão completa de Clientes)
-- [x] Etapa 12: testes (suíte automatizada de testes cobrindo validações de produtos, cálculo de margem, bloqueio de estoque negativo, categorização de validades, fechamento de caixa atômico e estornos)
-- [x] Etapa 13: refinamento (configuração de deploy no Vercel via vercel.json e nitro preset, tratamento de erros, responsividade total, atalhos de teclado F2/F4/F9 no PDV e UX aprimorada)
-- [ ] Etapa 14: documentação final
+---
 
-## Usuários de Demonstração (Seed)
+## 🛠️ Como Executar Localmente
 
-| Perfil | E-mail | Senha |
-| --- | --- | --- |
-| **Administrador** | `admin@estoque.com` | `admin123` |
-| **Gerente** | `gerente@estoque.com` | `gerente123` |
-| **Operador de Caixa** | `operador@estoque.com` | `operador123` |
+### Pré-requisitos
+* **Node.js 20+** instalado
+* **Git**
 
-## Melhorias futuras
+### 1. Clonar o repositório
+```bash
+git clone https://github.com/hiinin/Sistema-estoque.git
+cd Sistema-estoque
+```
 
-- Emissão de cupom/recibo para impressão
-- Importação de produtos por planilha
+### 2. Instalar dependências
+```bash
+npm install
+```
+
+### 3. Configurar variáveis de ambiente
+Crie o arquivo `.env` a partir do `.env.example`:
+```bash
+cp .env.example .env
+```
+
+* **Modo Desenvolvimento Local (Sem instalar banco):** Deixe `DATABASE_URL` vazio. O sistema usará o **PGlite** (PostgreSQL embutido em arquivo local).
+* **Modo Supabase:** Insira a connection string do Supabase Session Pooler (porta 5432).
+
+### 4. Executar o Seeder de demonstração (Opcional)
+```bash
+npm run db:seed
+```
+
+### 5. Iniciar o servidor de desenvolvimento
+```bash
+npm run dev
+```
+Acesse: [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🧪 Executando os Testes Automatizados
+
+O projeto conta com suíte automatizada de testes cobrindo todas as regras de negócio críticas:
+
+```bash
+npm test
+```
+
+---
+
+## 🌐 Deploy no Vercel
+
+1. Importe o repositório no painel do [Vercel](https://vercel.com).
+2. Configure as variáveis de ambiente em **Settings > Environment Variables**:
+   * `DATABASE_URL`: Connection string do **Session Pooler** do Supabase (ex: `postgresql://postgres.[REF]:[SENHA]@aws-0-[REGIAO].pooler.supabase.com:5432/postgres`).
+   * `NUXT_SESSION_SECRET`: Uma string aleatória longa para assinatura dos tokens JWT.
+3. O Vercel executará automaticamente `npm run build` e fará o deploy serverless.
+
+---
+
+## 🗺️ Roadmap de Etapas Concluídas
+
+- [x] **Etapa 01:** Inicialização (Nuxt, Tailwind 4, Drizzle ORM, PGlite/Postgres)
+- [x] **Etapa 02:** Arquitetura e banco de dados (11 tabelas, índices, FKs, Seeder)
+- [x] **Etapa 03:** Autenticação e Perfis (JWT HttpOnly, Guards ADMIN/MANAGER/OPERATOR)
+- [x] **Etapa 04:** Categorias de Produtos (CRUD e integridade referencial)
+- [x] **Etapa 05:** Fornecedores (CRUD, busca, validações e soft-deactivate)
+- [x] **Etapa 06:** Produtos e Catálogo (SKU/EAN únicos, margem de lucro, alertas)
+- [x] **Etapa 07:** Gestão de Estoque (Entradas, compras NF, perdas, ajustes e bloqueio de saldo negativo)
+- [x] **Etapa 08:** Lotes e Validades (Monitoramento por cores, descarte sanitário com auditoria)
+- [x] **Etapa 09:** Frente de Caixa / PDV (Leitor USB, bip sonoro, atalhos F2/F4/F9, troco e checkout atômico)
+- [x] **Etapa 10:** Dashboard Gerencial (KPIs em tempo real, gráficos de faturamento e ranking)
+- [x] **Etapa 11:** Relatórios e Clientes (Vendas com margem, estoque com sugestão de compra, exportação CSV e impressão)
+- [x] **Etapa 12:** Suíte de Testes Automatizados (Validações e regras de negócio)
+- [x] **Etapa 13:** Refinamento e Deploy (Configurações Vercel, responsividade e polimento de UX)
+- [x] **Etapa 14:** Documentação Final Completa
+
+---
+
+## 📄 Licença
+
+Este projeto foi desenvolvido para fins profissionais e de demonstração de portfólio. Livre para uso e customizações comerciais.
