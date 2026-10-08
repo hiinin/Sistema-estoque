@@ -39,7 +39,7 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 ## Progresso
 
 - [x] Etapa 01: inicialização (Nuxt, Tailwind, Drizzle, banco, ambiente)
-- [ ] Etapa 02: arquitetura e banco
+- [x] Etapa 02: arquitetura e banco (schema PostgreSQL/Drizzle, 11 tabelas, índices, FKs, seeders com dados de demonstração)
 - [ ] Etapa 03: autenticação
 - [ ] Etapa 04: categorias
 - [ ] Etapa 05: fornecedores
@@ -52,6 +52,14 @@ Acesse http://localhost:3000. A rota `/api/health` confirma a conexão com o ban
 - [ ] Etapa 12: testes
 - [ ] Etapa 13: refinamento (inclui configuração do deploy no Vercel)
 - [ ] Etapa 14: documentação final
+
+## Usuários de Demonstração (Seed)
+
+| Perfil | E-mail | Senha |
+| --- | --- | --- |
+| **Administrador** | `admin@estoque.com` | `admin123` |
+| **Gerente** | `gerente@estoque.com` | `gerente123` |
+| **Operador de Caixa** | `operador@estoque.com` | `operador123` |
 
 ## Melhorias futuras
 
