@@ -36,13 +36,22 @@ Sistema web completo, profissional e funcional de **gestão de estoque, controle
 * **Cancelamento e Estorno de Vendas:** Cancelamento de vendas concluídas com devolução automática dos itens ao estoque e registro de estorno (`RETURN`).
 * **Emissão de Cupom Não Fiscal:** Modal de comprovante com opção de impressão direta.
 
-### 📦 2. Gestão de Produtos & Catálogo
+### 💼 2. Controle de Caixa & Turnos (Novo)
+* **Abertura de Caixa:** Registro obrigatório do operador com valor de fundo de troco inicial.
+* **Sangrias (Retiradas Seguras):** Registro justificado de retirada de dinheiro para cofre com validação de saldo físico na gaveta.
+* **Suprimentos (Reforço de Troco):** Inclusão de cédulas/moedas com auditoria.
+* **Fechamento de Caixa com Conferência Cega:** Apuração física do dinheiro na gaveta com cálculo automático instantâneo de **Quebra de Caixa** (falta) ou **Sobra de Caixa** (excedente).
+* **Vinculação Direta com o PDV:** Todas as vendas em dinheiro alimentam a gaveta em tempo real e se vinculam à sessão ativa.
+
+### 📦 3. Gestão de Produtos & Catálogo
 * Cadastro completo com **SKU único**, **Código de Barras (EAN-13)**, preço de custo, preço de venda e unidade de medida.
 * Cálculo automático de **Margem de Lucro (%)** e **Lucro Bruto (R$)** em tempo real.
 * Configuração de **Estoque Mínimo** e **Estoque Máximo** com alertas visuais.
-* Gerador automático de código de barras EAN aleatório para produtos que não possuem código de fábrica.
+* **Importação em Lote via Planilha CSV:** Carregamento de catálogos inteiros com detecção inteligente de colunas, criação dinâmica de categorias e validação com preview.
+* **Exportação Completa para CSV:** Download de todo o catálogo com codificação UTF-8 e compatibilidade nativa com Microsoft Excel.
+* **Gerador & Impressão de Etiquetas:** Criação de etiquetas com código de barras em SVG puro (Code 128) nos padrões **Gôndola (Supermercado / Preço grande)** e **Adesivo de Produto (Compacto)** com suporte a `@media print`.
 
-### 🏷️ 3. Controle de Lotes & Validade
+### 🏷️ 4. Controle de Lotes & Validade
 * Controle detalhado por número de lote, data de fabricação e data de expiração.
 * **Categorização visual inteligente de vencimento:**
   * 🔴 **Vencido:** Validade expirada.
@@ -51,7 +60,7 @@ Sistema web completo, profissional e funcional de **gestão de estoque, controle
   * 🟢 **Regular:** Validade segura superior a 30 dias.
 * Ação de **Descarte Sanitário:** Baixa do lote com dedução do estoque do produto e auditoria de perda (`LOSS`).
 
-### 🔄 4. Movimentações de Estoque & Auditoria Total
+### 🔄 5. Movimentações de Estoque & Auditoria Total
 * **Entrada Avulsa (`ENTRY`):** Inclusão manual de itens.
 * **Compras de Fornecedor / NF (`PURCHASE`):** Entrada de múltiplos itens com vínculo a fornecedor e número de nota fiscal.
 * **Perdas e Avarias (`LOSS`):** Baixa justificada por quebra, dano ou validade.
@@ -60,7 +69,7 @@ Sistema web completo, profissional e funcional de **gestão de estoque, controle
 * **Estorno de Cancelamento (`RETURN`):** Devolução ao estoque após cancelamento de cupom.
 * **Bloqueio Rigoroso de Estoque Negativo:** O sistema impede qualquer saída superior ao saldo existente no banco de dados.
 
-### 📊 5. Dashboard Gerencial em Tempo Real
+### 📊 6. Dashboard Gerencial em Tempo Real
 * Indicadores diários (Faturamento hoje, total de cupons, ticket médio e unidades vendidas).
 * Indicadores mensais acumulados e lucro bruto estimado.
 * Valorização total do estoque a preço de custo e preço de venda projetado.
@@ -69,7 +78,7 @@ Sistema web completo, profissional e funcional de **gestão de estoque, controle
 * Ranking dos 5 produtos mais vendidos.
 * Painel de reposição urgente com itens abaixo do estoque mínimo.
 
-### 📑 6. Relatórios & Inteligência de Negócio
+### 📑 7. Relatórios & Inteligência de Negócio
 * Relatórios completos com filtros por período, categoria, fornecedor e forma de pagamento:
   * **Relatório de Vendas & Faturamento**
   * **Relatório de Posição de Estoque & Sugestão de Compra**
@@ -78,14 +87,18 @@ Sistema web completo, profissional e funcional de **gestão de estoque, controle
 * **Exportação para CSV:** Arquivo formatado com separador padrão `;` e codificação UTF-8 com BOM (compatibilidade nativa com Microsoft Excel).
 * **Impressão / PDF:** Layout limpo e otimizado via CSS Print (`@media print`).
 
-### 👥 7. Gestão de Clientes e Fornecedores
+### 👥 8. Gestão de Clientes e Fornecedores
 * Cadastro de Clientes (CPF, WhatsApp, e-mail) para vínculo no PDV.
 * Cadastro de Fornecedores com CNPJ, contatos e endereço.
 * Proteção contra exclusão indevida (soft-deactivate e restrição de integridade referencial).
 
+### ⚡ 9. UX & Produtividade: Paleta de Comandos & Toasts
+* **Command Palette Global (`Ctrl+K` ou `Cmd+K`):** Busca instantânea por qualquer módulo, produto ou ação rápida sem tirar as mãos do teclado.
+* **Sistema Global de Toasts:** Notificações flutuantes animadas com feedback de sucesso, alerta, erro e informação em todas as operações.
+
 ---
 
-## 🗄️ Estrutura do Banco de Dados (11 Tabelas)
+## 🗄️ Estrutura do Banco de Dados (13 Tabelas)
 
 ```
 users (id, name, email, password, role, active, created_at, updated_at)
@@ -96,7 +109,9 @@ products (id, sku, barcode, name, description, category_id, supplier_id, cost_pr
 product_batches (id, product_id, batch_number, initial_quantity, current_quantity, cost_price, manufacturing_date, expiration_date, active, created_at, updated_at)
 purchases (id, code, supplier_id, user_id, total, invoice_number, notes, created_at, updated_at)
 purchase_items (id, purchase_id, product_id, quantity, cost_price, subtotal, batch_number, manufacturing_date, expiration_date, created_at)
-sales (id, code, user_id, customer_id, subtotal, discount, total, payment_method, status, notes, created_at, updated_at)
+cash_registers (id, user_id, status, opening_amount, closing_amount, expected_amount, difference_amount, notes, opened_at, closed_at, created_at, updated_at)
+cash_movements (id, cash_register_id, user_id, type, amount, payment_method, description, created_at)
+sales (id, code, user_id, cash_register_id, customer_id, subtotal, discount, total, payment_method, status, notes, created_at, updated_at)
 sale_items (id, sale_id, product_id, batch_id, quantity, unit_price, cost_price, subtotal, created_at)
 stock_movements (id, product_id, batch_id, user_id, type, quantity, previous_stock, new_stock, unit_cost, reference_id, reason, created_at)
 ```
@@ -179,7 +194,7 @@ npm test
 ## 🗺️ Roadmap de Etapas Concluídas
 
 - [x] **Etapa 01:** Inicialização (Nuxt, Tailwind 4, Drizzle ORM, PGlite/Postgres)
-- [x] **Etapa 02:** Arquitetura e banco de dados (11 tabelas, índices, FKs, Seeder)
+- [x] **Etapa 02:** Arquitetura e banco de dados (13 tabelas, índices, FKs, Seeder)
 - [x] **Etapa 03:** Autenticação e Perfis (JWT HttpOnly, Guards ADMIN/MANAGER/OPERATOR)
 - [x] **Etapa 04:** Categorias de Produtos (CRUD e integridade referencial)
 - [x] **Etapa 05:** Fornecedores (CRUD, busca, validações e soft-deactivate)
@@ -191,7 +206,10 @@ npm test
 - [x] **Etapa 11:** Relatórios e Clientes (Vendas com margem, estoque com sugestão de compra, exportação CSV e impressão)
 - [x] **Etapa 12:** Suíte de Testes Automatizados (Validações e regras de negócio)
 - [x] **Etapa 13:** Refinamento e Deploy (Configurações Vercel, responsividade e polimento de UX)
-- [x] **Etapa 14:** Documentação Final Completa
+- [x] **Etapa 14:** Documentação Arquitetural e Funcional
+- [x] **Etapa 15:** Controle de Caixa & Turnos (Abertura, Sangria, Suprimento e Fechamento com conferência de quebra/sobra)
+- [x] **Etapa 16:** Gerador de Etiquetas Code 128 (SVG) e Importação/Exportação CSV em lote
+- [x] **Etapa 17:** Command Palette Global (`Ctrl+K`) e Sistema Reativo de Toasts
 
 ---
 
