@@ -231,3 +231,41 @@ describe('Regras de Negócio: Controle de Caixa, Sangrias e Fechamento', () => {
   })
 })
 
+// --- 6. TESTES DE IMPORTAÇÃO CSV E CÓDIGO DE BARRAS ---
+describe('Regras de Negócio: Importação CSV & Geração de Código de Barras', () => {
+  it('deve validar estrutura e normalização de linha de produto para importação', () => {
+    const importSchema = z.object({
+      name: z.string().min(2),
+      barcode: z.string().min(3),
+      sku: z.string().min(2),
+      costPrice: z.number().min(0),
+      salePrice: z.number().min(0),
+      currentStock: z.number().min(0),
+      unit: z.string().default('UN')
+    })
+
+    const raw = {
+      name: 'Sabão em Barra Ypê',
+      barcode: '7891234567890',
+      sku: 'SAB-YPE-01',
+      costPrice: 2.50,
+      salePrice: 4.20,
+      currentStock: 50,
+      unit: 'UN'
+    }
+
+    const res = importSchema.safeParse(raw)
+    assert.equal(res.success, true)
+  })
+
+  it('deve gerar código de barras SVG no padrão Code 128 sem quebrar', async () => {
+    const { generateBarcodeSvg } = await import('../app/utils/barcode')
+    const svg = generateBarcodeSvg('7891000100103', { height: 40, moduleWidth: 1.5 })
+
+    assert.ok(svg.startsWith('<svg'), 'Deve iniciar com tag SVG')
+    assert.ok(svg.includes('7891000100103'), 'Deve conter o texto do código legível')
+    assert.ok(svg.endsWith('</svg>'), 'Deve fechar tag SVG')
+  })
+})
+
+

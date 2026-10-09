@@ -15,8 +15,15 @@ import {
   DollarSign,
   Layers,
   Sparkles,
-  Eye
+  Eye,
+  Download,
+  Upload,
+  Printer,
+  FileSpreadsheet,
+  Tag,
+  FileUp
 } from 'lucide-vue-next'
+import { generateBarcodeSvg } from '../utils/barcode'
 
 const { hasRole } = useAuth()
 const canManage = computed(() => hasRole(['ADMIN', 'MANAGER']))
@@ -255,6 +262,173 @@ const formatMoney = (v: string | number) => {
 const formatNumber = (v: string | number) => {
   return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })
 }
+
+// --- 1. EXPORTAÇÃO CSV COMPLETA ---
+const exportProductsCsv = () => {
+  const headers = ['ID', 'Nome', 'Codigo_Barras', 'SKU', 'Categoria', 'Fornecedor', 'Preco_Custo', 'Preco_Venda', 'Estoque_Atual', 'Estoque_Minimo', 'Unidade', 'Status']
+  const rows = productsList.value.map(p => [
+    p.id.toString(),
+    p.name,
+    p.barcode,
+    p.sku,
+    p.categoryName || '',
+    p.supplierName || '',
+    Number(p.costPrice).toFixed(2),
+    Number(p.salePrice).toFixed(2),
+    Number(p.currentStock).toFixed(3),
+    Number(p.minimumStock).toFixed(3),
+    p.unit,
+    p.active ? 'Ativo' : 'Inativo'
+  ])
+
+  const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(';')).join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `produtos-estoquepro-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// --- 2. IMPORTAÇÃO CSV EM LOTE ---
+const isImportModalOpen = ref(false)
+const isImporting = ref(false)
+const importErrorMessage = ref('')
+const parsedImportItems = ref<any[]>([])
+
+const handleCsvFileUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  importErrorMessage.value = ''
+  parsedImportItems.value = []
+
+  try {
+    const text = await file.text()
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0)
+    if (lines.length < 2) {
+      importErrorMessage.value = 'O arquivo CSV precisa ter ao menos a linha de cabeçalho e um produto.'
+      return
+    }
+
+    const separator = lines[0].includes(';') ? ';' : ','
+    const parseLine = (line: string) => {
+      const regex = new RegExp(`(?:"([^"]*(?:""[^"]*)*)"|([^${separator}]+)|(?=${separator}|$))`, 'g')
+      const matches: string[] = []
+      let match
+      while ((match = regex.exec(line)) !== null) {
+        if (match.index === regex.lastIndex) regex.lastIndex++
+        matches.push(match[1] ? match[1].replace(/""/g, '"').trim() : (match[2] || '').trim())
+      }
+      return matches.slice(0, matches.length - 1)
+    }
+
+    const rawHeader = parseLine(lines[0])
+    const header = rawHeader.map(h => h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, ''))
+
+    const nameIdx = header.findIndex(h => h.includes('nome') || h.includes('name') || h.includes('produto') || h.includes('descricao'))
+    const barcodeIdx = header.findIndex(h => h.includes('barcode') || h.includes('codigo') || h.includes('barras') || h.includes('ean'))
+    const skuIdx = header.findIndex(h => h.includes('sku') || h.includes('cod'))
+    const catIdx = header.findIndex(h => h.includes('categoria') || h.includes('cat') || h.includes('category'))
+    const costIdx = header.findIndex(h => h.includes('custo') || h.includes('precocusto') || h.includes('cost'))
+    const saleIdx = header.findIndex(h => h.includes('venda') || h.includes('precovenda') || h.includes('preco') || h.includes('price'))
+    const stockIdx = header.findIndex(h => h.includes('estoque') || h.includes('qtd') || h.includes('saldo') || h.includes('quant'))
+    const minIdx = header.findIndex(h => h.includes('min') || h.includes('minimo'))
+    const unitIdx = header.findIndex(h => h.includes('unidade') || h.includes('unit') || h.includes('un'))
+
+    const parsed: any[] = []
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseLine(lines[i])
+      if (!cols.length || cols.every(c => !c)) continue
+
+      const name = nameIdx >= 0 ? cols[nameIdx] : cols[1] || ''
+      if (!name) continue
+
+      const barcode = (barcodeIdx >= 0 && cols[barcodeIdx]) ? cols[barcodeIdx] : Math.floor(7890000000000 + Math.random() * 999999999).toString()
+      const sku = (skuIdx >= 0 && cols[skuIdx]) ? cols[skuIdx] : ('SKU-' + Math.floor(1000 + Math.random() * 9000))
+      const catName = catIdx >= 0 ? cols[catIdx] : ''
+      const cost = Number((costIdx >= 0 ? cols[costIdx] : '0').replace('R$', '').replace(',', '.').trim()) || 0
+      const sale = Number((saleIdx >= 0 ? cols[saleIdx] : '0').replace('R$', '').replace(',', '.').trim()) || 0
+      const stock = Number((stockIdx >= 0 ? cols[stockIdx] : '0').replace(',', '.').trim()) || 0
+      const minStock = Number((minIdx >= 0 ? cols[minIdx] : '5').replace(',', '.').trim()) || 5
+      const unit = ((unitIdx >= 0 ? cols[unitIdx] : 'UN') || 'UN').trim()
+
+      parsed.push({
+        name,
+        barcode,
+        sku,
+        categoryName: catName,
+        costPrice: cost,
+        salePrice: sale,
+        currentStock: stock,
+        minimumStock: minStock,
+        unit
+      })
+    }
+
+    if (!parsed.length) {
+      importErrorMessage.value = 'Nenhum produto válido encontrado. Verifique o modelo das colunas.'
+      return
+    }
+
+    parsedImportItems.value = parsed
+  } catch (err: any) {
+    importErrorMessage.value = 'Falha ao ler planilha: ' + (err.message || 'Erro desconhecido')
+  }
+}
+
+const submitImport = async () => {
+  if (!parsedImportItems.value.length) return
+  isImporting.value = true
+  importErrorMessage.value = ''
+
+  try {
+    const res: any = await $fetch('/api/products/import', {
+      method: 'POST',
+      body: { items: parsedImportItems.value }
+    })
+    successMessage.value = res.message || 'Importação realizada com sucesso!'
+    isImportModalOpen.value = false
+    parsedImportItems.value = []
+    await refresh()
+    setTimeout(() => { successMessage.value = '' }, 4000)
+  } catch (err: any) {
+    importErrorMessage.value = err.data?.message || 'Erro ao importar produtos'
+  } finally {
+    isImporting.value = false
+  }
+}
+
+// --- 3. ETIQUETAS DE CÓDIGO DE BARRAS ---
+const isLabelModalOpen = ref(false)
+const labelProductMode = ref<'SELECTED' | 'ALL'>('SELECTED')
+const selectedLabelProductId = ref<number | null>(null)
+const labelCopies = ref(1)
+const labelLayout = ref<'GONDOLA' | 'COMPACT'>('GONDOLA')
+
+const openLabelModalForProduct = (prod?: ProductItem) => {
+  if (prod) {
+    labelProductMode.value = 'SELECTED'
+    selectedLabelProductId.value = prod.id
+  } else {
+    selectedLabelProductId.value = productsList.value[0]?.id || null
+  }
+  isLabelModalOpen.value = true
+}
+
+const activeLabelProducts = computed(() => {
+  if (labelProductMode.value === 'ALL') {
+    return productsList.value
+  }
+  const found = productsList.value.find(p => p.id === selectedLabelProductId.value)
+  return found ? [found] : []
+})
+
+const printLabels = () => {
+  window.print()
+}
 </script>
 
 <template>
@@ -269,22 +443,50 @@ const formatNumber = (v: string | number) => {
         <p class="text-sm text-slate-500 mt-1">Gerencie preços, estoque mínimo, código de barras e categorias</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button
+          @click="exportProductsCsv"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+          title="Baixar planilha CSV com todos os produtos"
+        >
+          <Download class="h-3.5 w-3.5 text-slate-500" />
+          <span>Exportar CSV</span>
+        </button>
+
+        <button
+          v-if="canManage"
+          @click="isImportModalOpen = true"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+          title="Importar produtos em lote via arquivo CSV"
+        >
+          <Upload class="h-3.5 w-3.5 text-slate-500" />
+          <span>Importar Planilha</span>
+        </button>
+
+        <button
+          @click="openLabelModalForProduct()"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+          title="Gerar e imprimir etiquetas de código de barras"
+        >
+          <Printer class="h-3.5 w-3.5 text-slate-500" />
+          <span>Etiquetas</span>
+        </button>
+
         <NuxtLink
           to="/pos"
-          class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
         >
-          <Barcode class="h-4 w-4 text-emerald-600" />
-          <span>Testar no PDV</span>
+          <Barcode class="h-3.5 w-3.5 text-emerald-600" />
+          <span>PDV</span>
         </NuxtLink>
 
         <button
           v-if="canManage"
           @click="openCreateModal"
-          class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition cursor-pointer"
+          class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 transition cursor-pointer"
         >
-          <Plus class="h-4 w-4" />
-          Novo Produto
+          <Plus class="h-3.5 w-3.5" />
+          <span>Novo Produto</span>
         </button>
       </div>
     </div>
@@ -507,7 +709,14 @@ const formatNumber = (v: string | number) => {
 
               <!-- Actions -->
               <td class="px-6 py-4 text-right">
-                <div class="flex items-center justify-end gap-2">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button
+                    @click="openLabelModalForProduct(prod)"
+                    class="rounded-lg p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer"
+                    title="Imprimir etiquetas de código de barras deste produto"
+                  >
+                    <Printer class="h-4 w-4" />
+                  </button>
                   <button
                     v-if="canManage"
                     @click="openEditModal(prod)"
@@ -811,5 +1020,304 @@ const formatNumber = (v: string | number) => {
         </div>
       </div>
     </div>
+
+    <!-- MODAL IMPORTAÇÃO CSV EM LOTE -->
+    <div
+      v-if="isImportModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+    >
+      <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 my-8">
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <Upload class="h-5 w-5" />
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Importação de Produtos via Planilha</h2>
+              <p class="text-xs text-slate-500">Cadastre ou atualize múltiplos produtos em lote</p>
+            </div>
+          </div>
+          <button @click="isImportModalOpen = false" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Instruções de formato -->
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-1">
+            <p class="font-semibold text-slate-800">Formato e colunas aceitas (CSV com ; ou ,):</p>
+            <p class="font-mono text-[11px] text-slate-500">Nome, Codigo_Barras, SKU, Categoria, Preco_Custo, Preco_Venda, Estoque_Atual, Estoque_Minimo, Unidade</p>
+            <p class="text-[11px] text-slate-400">Produtos com código de barras ou SKU já existentes serão atualizados automaticamente.</p>
+          </div>
+
+          <!-- Upload Dropzone -->
+          <div class="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 text-center transition cursor-pointer relative bg-slate-50/50">
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              @change="handleCsvFileUpload"
+              class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+            <div class="flex flex-col items-center">
+              <FileSpreadsheet class="h-10 w-10 text-emerald-600 mb-2" />
+              <p class="text-sm font-semibold text-slate-800">Selecione ou arraste seu arquivo .CSV aqui</p>
+              <p class="text-xs text-slate-400 mt-1">Compatível com Excel, Google Sheets e LibreOffice</p>
+            </div>
+          </div>
+
+          <!-- Mensagens de erro -->
+          <div v-if="importErrorMessage" class="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
+            <AlertCircle class="h-4 w-4 shrink-0 text-rose-600" />
+            <span>{{ importErrorMessage }}</span>
+          </div>
+
+          <!-- Preview dos dados parseados -->
+          <div v-if="parsedImportItems.length > 0" class="space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Pré-visualização ({{ parsedImportItems.length }} produtos identificados):</span>
+              <span class="text-emerald-600 font-bold">Pronto para importar</span>
+            </div>
+
+            <div class="max-h-40 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
+              <div
+                v-for="(it, idx) in parsedImportItems.slice(0, 5)"
+                :key="idx"
+                class="p-2.5 flex items-center justify-between bg-white hover:bg-slate-50"
+              >
+                <div>
+                  <span class="font-bold text-slate-800">{{ it.name }}</span>
+                  <span class="text-[10px] text-slate-400 block font-mono">Bar: {{ it.barcode }} | SKU: {{ it.sku }}</span>
+                </div>
+                <div class="text-right">
+                  <span class="font-bold text-emerald-700">{{ formatMoney(it.salePrice) }}</span>
+                  <span class="text-[10px] text-slate-400 block">{{ it.currentStock }} {{ it.unit }}</span>
+                </div>
+              </div>
+              <div v-if="parsedImportItems.length > 5" class="p-2 text-center text-[11px] text-slate-400 bg-slate-50">
+                ... e mais {{ parsedImportItems.length - 5 }} produto(s)
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              @click="isImportModalOpen = false; parsedImportItems = []"
+              class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              @click="submitImport"
+              :disabled="!parsedImportItems.length || isImporting"
+              class="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Loader2 v-if="isImporting" class="h-3.5 w-3.5 animate-spin" />
+              <span>Confirmar Importação ({{ parsedImportItems.length }})</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL GERADOR E IMPRESSÃO DE ETIQUETAS DE CÓDIGO DE BARRAS -->
+    <div
+      v-if="isLabelModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+    >
+      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 my-8">
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <Printer class="h-5 w-5" />
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Gerador & Impressão de Etiquetas</h2>
+              <p class="text-xs text-slate-500">Impressão térmica e gôndola com código de barras Code 128</p>
+            </div>
+          </div>
+          <button @click="isLabelModalOpen = false" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Opções de Configuração -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Modelo de Etiqueta</label>
+              <select
+                v-model="labelLayout"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="GONDOLA">Gôndola / Prateleira (Grande)</option>
+                <option value="COMPACT">Adesivo Produto (Compacta)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Produtos</label>
+              <select
+                v-model="labelProductMode"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="SELECTED">Apenas Produto Selecionado</option>
+                <option value="ALL">Todos os Produtos Filtrados</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Cópias por Produto</label>
+              <input
+                v-model.number="labelCopies"
+                type="number"
+                min="1"
+                max="50"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div v-if="labelProductMode === 'SELECTED'" class="space-y-1">
+            <label class="block text-xs font-semibold text-slate-700">Selecione o Produto:</label>
+            <select
+              v-model="selectedLabelProductId"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+            >
+              <option v-for="p in productsList" :key="p.id" :value="p.id">
+                {{ p.name }} ({{ p.barcode }}) - {{ formatMoney(p.salePrice) }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Pré-visualização da Etiqueta -->
+          <div>
+            <span class="text-xs font-semibold text-slate-700 block mb-2">Pré-visualização da Etiqueta:</span>
+            <div class="p-6 rounded-2xl bg-slate-100/70 border border-slate-200 flex items-center justify-center">
+              <div v-if="activeLabelProducts.length > 0">
+                <!-- Modelo Gôndola -->
+                <div
+                  v-if="labelLayout === 'GONDOLA'"
+                  class="bg-white border-2 border-slate-900 rounded-lg p-3 w-72 shadow-sm text-slate-900 text-left font-sans"
+                >
+                  <div class="border-b border-slate-200 pb-1 mb-2">
+                    <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">EstoquePro Supermercado</span>
+                    <h4 class="font-black text-xs leading-tight line-clamp-1 uppercase">{{ activeLabelProducts[0]?.name }}</h4>
+                  </div>
+
+                  <div class="flex items-end justify-between my-2">
+                    <div>
+                      <span class="text-[9px] text-slate-500 block">Preço à vista</span>
+                      <span class="text-2xl font-black text-slate-950 tracking-tight leading-none">
+                        {{ formatMoney(activeLabelProducts[0]?.salePrice) }}
+                      </span>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">
+                      {{ activeLabelProducts[0]?.unit }}
+                    </span>
+                  </div>
+
+                  <div
+                    class="pt-1 text-center overflow-hidden flex justify-center"
+                    v-html="generateBarcodeSvg(activeLabelProducts[0]?.barcode, { height: 35, moduleWidth: 1.5 })"
+                  ></div>
+                  <div class="flex justify-between text-[8px] text-slate-400 font-mono mt-0.5">
+                    <span>SKU: {{ activeLabelProducts[0]?.sku }}</span>
+                    <span>{{ new Date().toLocaleDateString('pt-BR') }}</span>
+                  </div>
+                </div>
+
+                <!-- Modelo Compacto -->
+                <div
+                  v-else
+                  class="bg-white border border-slate-300 rounded p-2 w-48 shadow-sm text-center font-sans text-slate-900"
+                >
+                  <p class="font-bold text-[11px] truncate leading-tight">{{ activeLabelProducts[0]?.name }}</p>
+                  <p class="font-black text-sm text-slate-950 my-0.5">{{ formatMoney(activeLabelProducts[0]?.salePrice) }}</p>
+                  <div
+                    class="overflow-hidden flex justify-center"
+                    v-html="generateBarcodeSvg(activeLabelProducts[0]?.barcode, { height: 25, moduleWidth: 1.2 })"
+                  ></div>
+                </div>
+              </div>
+              <div v-else class="text-xs text-slate-400 italic">
+                Nenhum produto selecionado para gerar etiqueta.
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+            <span class="text-xs text-slate-500">
+              Total a imprimir: <strong>{{ activeLabelProducts.length * (labelCopies || 1) }}</strong> etiqueta(s)
+            </span>
+
+            <div class="flex gap-2">
+              <button
+                type="button"
+                @click="isLabelModalOpen = false"
+                class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                @click="printLabels"
+                class="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer class="h-4 w-4" />
+                <span>Imprimir Etiquetas</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÁREA DE IMPRESSÃO PURA DE ETIQUETAS (@media print) -->
+    <div id="labels-print-area" class="hidden print:block fixed inset-0 bg-white p-2 z-9999">
+      <div class="flex flex-wrap gap-2 justify-start items-start">
+        <template v-for="prod in activeLabelProducts" :key="prod.id">
+          <template v-for="c in labelCopies" :key="c">
+            <!-- Modelo Gôndola Impresso -->
+            <div
+              v-if="labelLayout === 'GONDOLA'"
+              class="border border-black p-2 w-64 h-36 flex flex-col justify-between text-black break-inside-avoid mb-2"
+              style="page-break-inside: avoid;"
+            >
+              <div>
+                <p class="text-[8px] uppercase tracking-wider font-bold">ESTOQUEPRO</p>
+                <p class="font-bold text-xs truncate uppercase leading-tight">{{ prod.name }}</p>
+              </div>
+
+              <div class="flex items-baseline justify-between my-1">
+                <span class="text-xl font-black">{{ formatMoney(prod.salePrice) }}</span>
+                <span class="text-[9px] font-bold">{{ prod.unit }}</span>
+              </div>
+
+              <div
+                class="flex justify-center"
+                v-html="generateBarcodeSvg(prod.barcode, { height: 28, moduleWidth: 1.2 })"
+              ></div>
+              <div class="flex justify-between text-[7px] font-mono text-gray-500">
+                <span>SKU: {{ prod.sku }}</span>
+                <span>{{ prod.barcode }}</span>
+              </div>
+            </div>
+
+            <!-- Modelo Compacto Impresso -->
+            <div
+              v-else
+              class="border border-black p-1.5 w-44 h-24 flex flex-col justify-between text-black text-center break-inside-avoid mb-2"
+              style="page-break-inside: avoid;"
+            >
+              <p class="font-bold text-[10px] truncate">{{ prod.name }}</p>
+              <p class="font-black text-xs leading-none">{{ formatMoney(prod.salePrice) }}</p>
+              <div
+                class="flex justify-center"
+                v-html="generateBarcodeSvg(prod.barcode, { height: 22, moduleWidth: 1 })"
+              ></div>
+            </div>
+          </template>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
+
