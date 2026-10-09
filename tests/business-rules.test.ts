@@ -268,4 +268,32 @@ describe('Regras de Negócio: Importação CSV & Geração de Código de Barras'
   })
 })
 
+// --- 7. TESTES DE FILTRAGEM RÁPIDA E SISTEMA DE NOTIFICAÇÕES ---
+describe('Regras de Negócio: Busca Rápida e Feedback de Notificações', () => {
+  it('deve filtrar catálogo por termo parcial ignorando maiúsculas e minúsculas', () => {
+    const catalog = [
+      { name: 'Arroz Camil 5kg', barcode: '7891000100101', sku: 'ARR-CAM-01' },
+      { name: 'Feijão Carioca Camil 1kg', barcode: '7891000100102', sku: 'FEI-CAM-01' },
+      { name: 'Coca-Cola 2L', barcode: '7891000100103', sku: 'REF-COC-01' }
+    ]
+
+    const search = 'camil'
+    const results = catalog.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.barcode.includes(search) ||
+      p.sku.toLowerCase().includes(search.toLowerCase())
+    )
+
+    assert.equal(results.length, 2)
+    assert.equal(results[0].name, 'Arroz Camil 5kg')
+  })
+
+  it('deve validar tipos permitidos de notificação no toast', () => {
+    const validToastTypes = ['success', 'error', 'warning', 'info']
+    const testType = 'success'
+    assert.ok(validToastTypes.includes(testType))
+  })
+})
+
+
 

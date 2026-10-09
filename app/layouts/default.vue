@@ -15,12 +15,17 @@ import {
   X,
   Store,
   ChevronRight,
-  Wallet
+  Wallet,
+  Search
 } from 'lucide-vue-next'
 
 const { user, logout, hasRole } = useAuth()
 const route = useRoute()
 const isMobileMenuOpen = ref(false)
+
+const triggerSearch = () => {
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
+}
 
 const navigation = computed(() => {
   const items = [
@@ -232,7 +237,21 @@ const roleLabel = computed(() => {
           </div>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <!-- Quick Search Button / Command Palette Trigger -->
+          <button
+            type="button"
+            @click="triggerSearch"
+            class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs text-slate-500 hover:border-slate-300 hover:bg-slate-100 transition cursor-pointer"
+            title="Buscar páginas ou produtos (Ctrl+K)"
+          >
+            <Search class="h-3.5 w-3.5 text-slate-400" />
+            <span>Buscar no sistema...</span>
+            <kbd class="font-mono text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400 shadow-2xs">
+              Ctrl+K
+            </kbd>
+          </button>
+
           <!-- Fast PDV Button -->
           <NuxtLink
             to="/pos"
