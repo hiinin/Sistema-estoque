@@ -7,7 +7,9 @@ import {
   saleItems,
   products,
   stockMovements,
-  customers
+  customers,
+  cashRegisters,
+  cashMovements
 } from '../../database/schema'
 
 const saleItemInputSchema = z.object({
@@ -122,12 +124,18 @@ export default defineEventHandler(async (event) => {
     const randomSuffix = Math.floor(1000 + Math.random() * 9000)
     const saleCode = `VEN-${todayStr}-${randomSuffix}`
 
+    // 4.1 Buscar sessão de caixa aberta para vincular o lançamento
+    const activeRegister = await tx.query.cashRegisters.findFirst({
+      where: eq(cashRegisters.status, 'OPEN')
+    })
+
     // 5. Inserir Registro da Venda (sales)
     const [sale] = await tx
       .insert(sales)
       .values({
         code: saleCode,
         userId: session.id,
+        cashRegisterId: activeRegister ? activeRegister.id : null,
         customerId: data.customerId || null,
         subtotal: calculatedSubtotal.toFixed(2),
         discount: discount.toFixed(2),
@@ -137,6 +145,18 @@ export default defineEventHandler(async (event) => {
         notes: data.notes?.trim() || null
       })
       .returning()
+
+    // 5.1 Se há caixa aberto, lançar no fluxo financeiro da sessão
+    if (activeRegister) {
+      await tx.insert(cashMovements).values({
+        cashRegisterId: activeRegister.id,
+        userId: session.id,
+        type: 'SALE',
+        amount: finalTotal.toFixed(2),
+        paymentMethod: data.paymentMethod,
+        description: `Venda ${saleCode} (${data.paymentMethod})`
+      })
+    }
 
     // 6. Processar itens, baixar estoque e registrar movimentações de auditoria
     for (const item of validatedItems) {

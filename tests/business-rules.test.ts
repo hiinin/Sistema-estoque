@@ -167,3 +167,67 @@ describe('Regras de Negócio: PDV, Vendas e Checkout', () => {
     assert.equal(productStock, 18)
   })
 })
+
+// --- 5. TESTES DE CONTROLE E FECHAMENTO DE CAIXA ---
+describe('Regras de Negócio: Controle de Caixa, Sangrias e Fechamento', () => {
+  it('deve calcular corretamente o saldo físico em dinheiro na gaveta', () => {
+    const openingAmount = 100.00 // Fundo inicial
+    const cashSales = 250.50     // Vendas em dinheiro
+    const reinforcement = 50.00  // Suprimento de troco
+    const bleed = 80.00          // Sangria / retirada
+
+    const expectedCash = openingAmount + cashSales + reinforcement - bleed
+    assert.equal(expectedCash, 320.50)
+  })
+
+  it('deve identificar quebra de caixa (falta de dinheiro) na conferência', () => {
+    const expectedCash = 320.50
+    const countedCash = 310.00 // Faltaram R$ 10,50
+    const difference = countedCash - expectedCash
+
+    assert.equal(difference, -10.50)
+    assert.ok(difference < 0, 'Diferença negativa é classificada como quebra de caixa')
+  })
+
+  it('deve identificar sobra de caixa (excedente) na conferência', () => {
+    const expectedCash = 320.50
+    const countedCash = 335.50 // Sobraram R$ 15,00
+    const difference = countedCash - expectedCash
+
+    assert.equal(difference, 15.00)
+    assert.ok(difference > 0, 'Diferença positiva é classificada como sobra de caixa')
+  })
+
+  it('deve BLOQUEAR sangria que exceda o saldo físico disponível na gaveta', () => {
+    const availableCash = 150.00
+    const requestedBleed = 200.00
+
+    const executeBleed = (current: number, bleed: number) => {
+      if (bleed > current) {
+        throw new Error(`Saldo em dinheiro insuficiente para sangria. Disponível: ${current}, Solicitado: ${bleed}`)
+      }
+      return current - bleed
+    }
+
+    assert.throws(
+      () => executeBleed(availableCash, requestedBleed),
+      /Saldo em dinheiro insuficiente para sangria/
+    )
+  })
+
+  it('deve isolar vendas PIX e Cartão do saldo físico da gaveta de cédulas', () => {
+    const openingCash = 100.00
+    const cashSales = 80.00
+    const pixSales = 300.00
+    const cardSales = 450.00
+
+    // O dinheiro físico na gaveta contabiliza apenas cédulas/moedas
+    const drawerCash = openingCash + cashSales
+    assert.equal(drawerCash, 180.00)
+
+    // O faturamento total engloba todos os canais
+    const totalRevenue = cashSales + pixSales + cardSales
+    assert.equal(totalRevenue, 830.00)
+  })
+})
+

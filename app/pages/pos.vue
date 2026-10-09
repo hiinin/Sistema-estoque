@@ -19,7 +19,9 @@ import {
   Receipt,
   Sparkles,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Wallet,
+  AlertTriangle
 } from 'lucide-vue-next'
 
 const { user } = useAuth()
@@ -64,6 +66,12 @@ const customersList = computed(() => customersData.value?.customers || [])
 
 const { data: productsData } = await useFetch<{ products: any[] }>('/api/products', { query: { active: 'true' } })
 const allProducts = computed(() => productsData.value?.products || [])
+
+// Fetch status do Caixa atual
+const { data: currentCashData, refresh: refreshCash } = await useFetch<any>('/api/cash/current')
+const isCashOpen = computed(() => currentCashData.value?.isOpen || false)
+const cashDrawerTotal = computed(() => currentCashData.value?.summary?.currentPhysicalCash || 0)
+const activeCashRegister = computed(() => currentCashData.value?.register)
 
 const filteredCatalogProducts = computed(() => {
   if (!catalogSearch.value) return allProducts.value.slice(0, 15)
@@ -295,6 +303,7 @@ const finalizeSale = async () => {
     cashReceived.value = 0
     notes.value = ''
     selectedCustomerId.value = null
+    await refreshCash()
   } catch (err: any) {
     playSound('error')
     posErrorMessage.value = err.data?.message || 'Erro ao finalizar venda no PDV'
@@ -336,11 +345,40 @@ const formatNumber = (v: string | number) => {
         </div>
       </div>
 
-      <!-- Quick Shortcut chips -->
-      <div class="hidden md:flex items-center gap-2 text-[11px] text-slate-500">
-        <span class="rounded-lg bg-slate-100 border border-slate-200 px-2 py-1 font-mono">F2 Leitor</span>
-        <span class="rounded-lg bg-slate-100 border border-slate-200 px-2 py-1 font-mono">F4 Cancelar</span>
-        <span class="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-1 font-mono font-bold">F9 Finalizar</span>
+      <!-- Cash Status and Shortcut chips -->
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <!-- Cash Status Pill -->
+        <NuxtLink
+          to="/cash"
+          :class="[
+            'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer',
+            isCashOpen
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+              : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+          ]"
+          :title="isCashOpen ? 'Clique para gerenciar sangrias e fechamento' : 'Clique para abrir o caixa'"
+        >
+          <span
+            :class="[
+              'h-2 w-2 rounded-full',
+              isCashOpen ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+            ]"
+          ></span>
+          <Wallet class="h-3.5 w-3.5" />
+          <span v-if="isCashOpen">
+            Caixa #{{ activeCashRegister?.id }} · Gaveta: {{ formatMoney(cashDrawerTotal) }}
+          </span>
+          <span v-else>
+            Caixa Fechado (Abrir)
+          </span>
+        </NuxtLink>
+
+        <!-- Quick Shortcut chips -->
+        <div class="hidden md:flex items-center gap-1.5 text-[11px] text-slate-500">
+          <span class="rounded-lg bg-slate-100 border border-slate-200 px-2 py-1 font-mono">F2 Leitor</span>
+          <span class="rounded-lg bg-slate-100 border border-slate-200 px-2 py-1 font-mono">F4 Cancelar</span>
+          <span class="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-1 font-mono font-bold">F9 Finalizar</span>
+        </div>
       </div>
     </div>
 

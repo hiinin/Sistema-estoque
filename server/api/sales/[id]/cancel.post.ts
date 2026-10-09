@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { requireRole } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
-import { sales, saleItems, products, stockMovements } from '../../../database/schema'
+import { sales, saleItems, products, stockMovements, cashMovements } from '../../../database/schema'
 
 const cancelSchema = z.object({
   reason: z.string().min(3, 'O motivo do cancelamento é obrigatório')
@@ -89,6 +89,18 @@ export default defineEventHandler(async (event) => {
         unitCost: item.costPrice,
         referenceId: `ESTORNO-${sale.code}`,
         reason: `Estorno de venda cancelada ${sale.code}. Motivo: ${reason}`
+      })
+    }
+
+    // 4. Se a venda estava vinculada a um caixa, registrar estorno financeiro
+    if (sale.cashRegisterId) {
+      await tx.insert(cashMovements).values({
+        cashRegisterId: sale.cashRegisterId,
+        userId: session.id,
+        type: 'BLEED',
+        amount: sale.total,
+        paymentMethod: sale.paymentMethod,
+        description: `Estorno de venda cancelada ${sale.code}. Motivo: ${reason}`
       })
     }
 

@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Store,
-  ChevronRight
+  ChevronRight,
+  Wallet
 } from 'lucide-vue-next'
 
 const { user, logout, hasRole } = useAuth()
@@ -35,6 +36,12 @@ const navigation = computed(() => {
       icon: ShoppingCart,
       roles: ['ADMIN', 'MANAGER', 'OPERATOR'],
       highlight: true
+    },
+    {
+      name: 'Controle de Caixa',
+      path: '/cash',
+      icon: Wallet,
+      roles: ['ADMIN', 'MANAGER', 'OPERATOR']
     },
     {
       name: 'Produtos',

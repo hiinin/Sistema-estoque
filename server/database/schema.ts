@@ -135,11 +135,32 @@ export const purchaseItems = pgTable('purchase_items', {
   index('idx_purchase_items_product').on(table.productId)
 ])
 
-// 9. Vendas
+// 9. Sessões de Caixa (Abertura, Fechamento e Auditoria de Valores)
+export const cashRegisters = pgTable('cash_registers', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  status: varchar('status', { length: 20 }).notNull().default('OPEN'), // 'OPEN' | 'CLOSED'
+  openingAmount: numeric('opening_amount', { precision: 12, scale: 2 }).notNull().default('0.00'),
+  closingAmount: numeric('closing_amount', { precision: 12, scale: 2 }),
+  expectedAmount: numeric('expected_amount', { precision: 12, scale: 2 }),
+  differenceAmount: numeric('difference_amount', { precision: 12, scale: 2 }),
+  notes: text('notes'),
+  openedAt: timestamp('opened_at', { mode: 'string' }).notNull().defaultNow(),
+  closedAt: timestamp('closed_at', { mode: 'string' }),
+  createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow()
+}, (table) => [
+  index('idx_cash_registers_user').on(table.userId),
+  index('idx_cash_registers_status').on(table.status),
+  index('idx_cash_registers_opened').on(table.openedAt)
+])
+
+// 10. Vendas
 export const sales = pgTable('sales', {
   id: serial('id').primaryKey(),
   code: varchar('code', { length: 50 }).notNull().unique(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  cashRegisterId: integer('cash_register_id').references(() => cashRegisters.id, { onDelete: 'set null' }),
   customerId: integer('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull(),
   discount: numeric('discount', { precision: 12, scale: 2 }).notNull().default('0.00'),
@@ -151,11 +172,12 @@ export const sales = pgTable('sales', {
   updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow()
 }, (table) => [
   index('idx_sales_user').on(table.userId),
+  index('idx_sales_cash_register').on(table.cashRegisterId),
   index('idx_sales_customer').on(table.customerId),
   index('idx_sales_created').on(table.createdAt)
 ])
 
-// 10. Itens da Venda
+// 11. Itens da Venda
 export const saleItems = pgTable('sale_items', {
   id: serial('id').primaryKey(),
   saleId: integer('sale_id').notNull().references(() => sales.id, { onDelete: 'cascade' }),
@@ -171,7 +193,7 @@ export const saleItems = pgTable('sale_items', {
   index('idx_sale_items_product').on(table.productId)
 ])
 
-// 11. Movimentações de Estoque (Auditoria e Rastreabilidade Total)
+// 12. Movimentações de Estoque (Auditoria e Rastreabilidade Total)
 export const stockMovements = pgTable('stock_movements', {
   id: serial('id').primaryKey(),
   productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
@@ -191,11 +213,29 @@ export const stockMovements = pgTable('stock_movements', {
   index('idx_movements_created').on(table.createdAt)
 ])
 
+// 13. Movimentações e Lançamentos de Caixa (Sangria, Suprimento, etc.)
+export const cashMovements = pgTable('cash_movements', {
+  id: serial('id').primaryKey(),
+  cashRegisterId: integer('cash_register_id').notNull().references(() => cashRegisters.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  type: varchar('type', { length: 30 }).notNull(), // 'OPENING' | 'REINFORCEMENT' | 'BLEED' | 'SALE' | 'CLOSING'
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: varchar('payment_method', { length: 50 }).notNull().default('MONEY'),
+  description: text('description'),
+  createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow()
+}, (table) => [
+  index('idx_cash_movements_register').on(table.cashRegisterId),
+  index('idx_cash_movements_type').on(table.type),
+  index('idx_cash_movements_created').on(table.createdAt)
+])
+
 // RELACIONAMENTOS DRIZZLE
 export const usersRelations = relations(users, ({ many }) => ({
   sales: many(sales),
   purchases: many(purchases),
-  stockMovements: many(stockMovements)
+  stockMovements: many(stockMovements),
+  cashRegisters: many(cashRegisters),
+  cashMovements: many(cashMovements)
 }))
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -267,6 +307,10 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
     fields: [sales.customerId],
     references: [customers.id]
   }),
+  cashRegister: one(cashRegisters, {
+    fields: [sales.cashRegisterId],
+    references: [cashRegisters.id]
+  }),
   items: many(saleItems)
 }))
 
@@ -299,3 +343,24 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
     references: [users.id]
   })
 }))
+
+export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) => ({
+  user: one(users, {
+    fields: [cashRegisters.userId],
+    references: [users.id]
+  }),
+  movements: many(cashMovements),
+  sales: many(sales)
+}))
+
+export const cashMovementsRelations = relations(cashMovements, ({ one }) => ({
+  cashRegister: one(cashRegisters, {
+    fields: [cashMovements.cashRegisterId],
+    references: [cashRegisters.id]
+  }),
+  user: one(users, {
+    fields: [cashMovements.userId],
+    references: [users.id]
+  })
+}))
+
