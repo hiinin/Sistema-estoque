@@ -104,7 +104,13 @@ export async function requireAuth(event: H3Event): Promise<SessionPayload> {
     })
   }
 
-  return session
+  // Usa o papel atual do banco: rebaixamentos/alterações valem imediatamente
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as 'ADMIN' | 'MANAGER' | 'OPERATOR'
+  }
 }
 
 /**
