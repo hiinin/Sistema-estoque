@@ -4,11 +4,12 @@ import { eq, and, ne } from 'drizzle-orm'
 import { requireRole } from '../../utils/auth'
 import { useDb } from '../../utils/db'
 import { users } from '../../database/schema'
+import { passwordSchema, BCRYPT_ROUNDS } from '../../utils/password'
 
 const updateUserSchema = z.object({
   name: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').optional().or(z.literal('')),
+  password: passwordSchema.optional().or(z.literal('')),
   role: z.enum(['ADMIN', 'MANAGER', 'OPERATOR']),
   active: z.boolean()
 })
@@ -77,7 +78,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (data.password && data.password.trim() !== '') {
-    updateValues.password = await bcrypt.hash(data.password, 10)
+    updateValues.password = await bcrypt.hash(data.password, BCRYPT_ROUNDS)
   }
 
   const [updated] = await db

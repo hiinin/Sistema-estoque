@@ -4,11 +4,12 @@ import { eq } from 'drizzle-orm'
 import { requireRole } from '../../utils/auth'
 import { useDb } from '../../utils/db'
 import { users } from '../../database/schema'
+import { passwordSchema, BCRYPT_ROUNDS } from '../../utils/password'
 
 const createUserSchema = z.object({
   name: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  password: passwordSchema,
   role: z.enum(['ADMIN', 'MANAGER', 'OPERATOR'], {
     message: 'Perfil deve ser ADMIN, MANAGER ou OPERATOR'
   }),
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const hashedPassword = await bcrypt.hash(data.password, 10)
+  const hashedPassword = await bcrypt.hash(data.password, BCRYPT_ROUNDS)
   const [created] = await db.insert(users).values({
     name: data.name,
     email: data.email.toLowerCase().trim(),
