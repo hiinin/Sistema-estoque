@@ -4,6 +4,10 @@ import { eq } from 'drizzle-orm'
 import { users } from '../../database/schema'
 import { useDb } from '../../utils/db'
 import { createUserSession } from '../../utils/auth'
+import { checkRateLimit, resetRateLimit } from '../../utils/rateLimit'
+
+// Hash descartável para equalizar o tempo de resposta quando o usuário não existe
+const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing', 10)
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -25,6 +29,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const { email, password } = validation.data
+  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
+  const ipKey = `login:ip:${ip}`
+  const accountKey = `login:acc:${ip}:${email.toLowerCase().trim()}`
+  checkRateLimit(ipKey, 30, 15 * 60 * 1000)
+  checkRateLimit(accountKey, 5, 15 * 60 * 1000)
+
   const db = await useDb()
 
   const user = await db.query.users.findFirst({
@@ -32,6 +42,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!user) {
+    await bcrypt.compare(password, DUMMY_HASH)
     throw createError({
       statusCode: 401,
       statusMessage: 'Credenciais inválidas',
@@ -55,6 +66,8 @@ export default defineEventHandler(async (event) => {
       message: 'E-mail ou senha incorretos.'
     })
   }
+
+  resetRateLimit(accountKey)
 
   const sessionData = {
     id: user.id,
