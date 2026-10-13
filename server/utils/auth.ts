@@ -5,9 +5,20 @@ import { users } from '../database/schema'
 import { useDb } from './db'
 
 const COOKIE_NAME = 'auth_session'
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.NUXT_SESSION_SECRET || 'super-secret-session-key-sistema-estoque-2026-xyz-32chars'
-)
+function resolveSecret(): string {
+  const secret = process.env.NUXT_SESSION_SECRET
+  if (secret && secret.length >= 32) return secret
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NUXT_SESSION_SECRET deve estar definido com pelo menos 32 caracteres em produção.')
+  }
+  // Desenvolvimento: segredo aleatório por processo (sessões expiram ao reiniciar)
+  console.warn('[auth] NUXT_SESSION_SECRET ausente/curto: usando segredo temporário de desenvolvimento.')
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+}
+
+const SECRET_KEY = new TextEncoder().encode(resolveSecret())
 
 export interface SessionPayload {
   id: number
